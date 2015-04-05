@@ -8,12 +8,16 @@ import subprocess
 import rrdtool
 import sqlite3
 
+'''Path to rrd files.'''
 rrdpath = "/var/www/stats/rrd"
+'''Path to store images.'''
 rrdgraphs = "/var/www/smart58/img"
+'''Path to store sqlite db file. If you have high io load it will be beter to store file in tmpfs.'''
 dbpath = "/dev/shm"
 
 
 def check_dir(path):
+    '''Create directories if not exist.'''
     try:
         os.makedirs(path)
     except OSError as exception:
@@ -24,6 +28,7 @@ def check_dir(path):
 check_dir(rrdpath)
 check_dir(rrdgraphs)
 
+'''Sqlite db connect and create tables for cpu and hdd statistics.'''
 db = sqlite3.connect(dbpath + '/stats.db')
 db_cursor = db.cursor()
 db_cursor.execute('''
@@ -43,7 +48,8 @@ db.commit()
 # ############################################################NETWORK##########################################################################
 
 
-def get_network_bytes(interface):
+def get_network_stats(interface):
+    '''Getting statistics for network interface from file /proc/net/dev'''
     for line in open('/proc/net/dev', 'r'):
         if interface in line:
             data = line.split('%s:' % interface)[1].split()
@@ -57,8 +63,9 @@ def get_network_bytes(interface):
             tx_drops = data[11]
             return (int(rx_bytes), int(rx_packets), int(rx_errors), int(rx_drops), int(tx_bytes), int(tx_packets), int(tx_errors), int(tx_drops))
 
-rx_bytes, rx_packets, rx_errors, rx_drops, tx_bytes, tx_packets, tx_errors, tx_drops = get_network_bytes('eth0')
+rx_bytes, rx_packets, rx_errors, rx_drops, tx_bytes, tx_packets, tx_errors, tx_drops = get_network_stats('eth0')
 
+'''Interface bits/s. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/if-traffic.rrd'):
     rrdtool.update(rrdpath + '/if-traffic.rrd', 'N:%s:%s' % (rx_bytes, tx_bytes))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -88,6 +95,7 @@ else:
                    'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                    'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
+'''Interface packets/s. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/if-packets.rrd'):
     rrdtool.update(rrdpath + '/if-packets.rrd', 'N:%s:%s' % (rx_packets, tx_packets))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -116,6 +124,7 @@ else:
                    'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                    'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
+'''Interface errors and drops. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/if-errors.rrd'):
     rrdtool.update(rrdpath + '/if-errors.rrd', 'N:%s:%s:%s:%s' % (rx_errors, rx_drops, tx_errors, tx_drops,))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -157,6 +166,7 @@ else:
 
 
 def get_mem_usage():
+    '''Getting memory usage from command gree -b'''
     run = subprocess.check_output(['free', '-b'])
     mem = run.split()
     total = int(mem[7])
@@ -172,6 +182,7 @@ def get_mem_usage():
 
 total, used, free, shared, buffers, cached, totalsw, usedsw, freesw = get_mem_usage()
 
+'''Memory usage. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/memory.rrd'):
     rrdtool.update(rrdpath + '/memory.rrd', 'N:%s:%s:%s:%s:%s:%s' % (total, used, free, shared, buffers, cached))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -216,6 +227,7 @@ else:
                    'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                    'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
+'''Swap usage. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/swap.rrd'):
     rrdtool.update(rrdpath + '/swap.rrd', 'N:%s:%s:%s' % (totalsw, usedsw, freesw))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -253,6 +265,7 @@ else:
 
 
 def get_disks():
+    '''Getting all sd[a-z] disks'''
     diskstats = open('/proc/diskstats', 'r')
     diskstats_r = diskstats.read()
     diskstats.close()
@@ -262,6 +275,7 @@ def get_disks():
 
 
 def get_disk_stats(disk):
+    '''Getting io  statistics for each disks'''
     for line in open('/proc/diskstats', 'r'):
         if disk in line:
             data = line.split('%s' % disk)[1].split()
@@ -280,6 +294,7 @@ def get_disk_stats(disk):
 
 
 def get_prev_disk_stats(disk):
+    '''Getting previous disk statistics from sqlite db. If previous statistics doesn't exist, set previous data = current data.'''
     db_cursor.execute('''SELECT * from hdd WHERE drive=?''', (disk,))
     prev_data = db_cursor.fetchall()
     if len(prev_data) == 0:
@@ -301,17 +316,19 @@ def get_prev_disk_stats(disk):
 
 
 def get_disk_usage():
-        run = subprocess.check_output(['df', '-k'])
-        part = run.split()
-        partidx = part.index('/')
-        totalidx = partidx - 4
-        usedidx = partidx - 3
-        disk_total = part[totalidx]
-        disk_used = part[usedidx]
-        return (int(disk_total), int(disk_used))
+    '''Getting usage of / partition'''
+    run = subprocess.check_output(['df', '-k'])
+    part = run.split()
+    partidx = part.index('/')
+    totalidx = partidx - 4
+    usedidx = partidx - 3
+    disk_total = part[totalidx]
+    disk_used = part[usedidx]
+    return (int(disk_total), int(disk_used))
 
 disk_total, disk_used = get_disk_usage()
 
+'''Root partition usage. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/disk-space.rrd'):
     rrdtool.update(rrdpath + '/disk-space.rrd', 'N:%s:%s' % (disk_total, disk_used))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -343,6 +360,7 @@ else:
                        'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
 for disk in get_disks():
+    '''Getting current and previous io stats for each disks and calculation delta's'''
     r_issued, r_merged, r_sectors, r_time, w_completed, w_merged, w_sectors, w_time, io_inprogress, io_time, io_total_time = get_disk_stats(disk)
     prev_r_issued, prev_r_merged, prev_r_sectors, prev_r_time, prev_w_completed, prev_w_merged, prev_w_sectors, prev_w_time, prev_io_inprogress, prev_io_time, prev_io_total_time = get_prev_disk_stats(disk)
     delta_io_total_time = float(io_total_time - prev_io_total_time)
@@ -357,6 +375,7 @@ for disk in get_disks():
     else:
         avgqsz = delta_io_total_time / delta_io_time
         await = (delta_r_time + delta_w_time) / (delta_r_issued + delta_w_completed)
+    '''Updating io stats in sqlite db'''
     db_cursor.execute('''
                       INSERT OR IGNORE INTO hdd (drive) VALUES (?)
                       ''', (disk,))
@@ -366,6 +385,7 @@ for disk in get_disks():
                       ''', (r_issued, r_merged, r_sectors, r_time, w_completed, w_merged, w_sectors, w_time, io_inprogress, io_time, io_total_time, disk))
     db.commit()
 
+    '''IO load. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
     if os.path.isfile(rrdpath + '/disk-io-load-'+disk+'.rrd'):
         rrdtool.update(rrdpath + '/disk-io-load-'+disk+'.rrd', 'N:%s:%s' % (avgqsz, await))
         for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -394,6 +414,7 @@ for disk in get_disks():
                        'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                        'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
+    '''IO stats tps. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
     if os.path.isfile(rrdpath + '/disk-io-'+disk+'.rrd'):
         rrdtool.update(rrdpath + '/disk-io-'+disk+'.rrd', 'N:%s:%s' % (r_issued, w_completed))
         for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -422,6 +443,7 @@ for disk in get_disks():
                        'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                        'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
 
+    '''IO stats bps. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
     if os.path.isfile(rrdpath + '/disk-io-sectors-'+disk+'.rrd'):
         rrdtool.update(rrdpath + '/disk-io-sectors-'+disk+'.rrd', 'N:%s:%s' % (r_sectors, w_sectors))
         for sched in ['daily', 'weekly', 'monthly', 'yearly']:
@@ -458,6 +480,7 @@ for disk in get_disks():
 
 
 def get_cur_cpu_stats():
+    '''Getting cpu stats from file /proc/stat'''
     for line in open('/proc/stat', 'r'):
         if 'cpu ' in line:
             data = line.split('cpu ')[1].split()
@@ -473,6 +496,7 @@ def get_cur_cpu_stats():
 
 
 def get_prev_cpu_stats():
+    '''Getting previous cpu stats from sqlite. If previous stats doesn't exist, previous stats = current stats'''
     db_cursor.execute('''SELECT * from cpu WHERE id=1''')
     prev_data = db_cursor.fetchall()
     if len(prev_data) == 0:
@@ -545,6 +569,7 @@ print 'Cpu Softirq %: ', cpu_softirq
 print 'Cpu Steal %: ', cpu_steal
 '''
 
+'''CPU usage. Update RRD file, create daily,weekly,monthly,yearly graphs or create RRD file if not exists.'''
 if os.path.isfile(rrdpath + '/cpu.rrd'):
     rrdtool.update(rrdpath + '/cpu.rrd', 'N:%s:%s:%s:%s:%s:%s:%s:%s:%s' % (cpu_user, cpu_nice, cpu_system, cpu_idle, cpu_iowait, cpu_irq, cpu_softirq, cpu_steal, cpu_total))
     for sched in ['daily', 'weekly', 'monthly', 'yearly']:
