@@ -119,7 +119,7 @@ if os.path.isfile(rrdpath + '/if-packets.rrd'):
                       'GPRINT:b:AVERAGE:Average\:%8.2lf %s', 'GPRINT:b:MAX:Maximum\:%8.2lf %s\\n')
 else:
     rrdtool.create(rrdpath + '/if-packets.rrd', '--step', '300',
-                   'DS:unicast_in:COUNTER:600:0:1000000000', 'DS:unicast_out:COUNTER:600:0:1000000000',
+                   'DS:unicast_in:COUNTER:600:0:700000', 'DS:unicast_out:COUNTER:600:0:700000',
                    'RRA:AVERAGE:0.5:1:500', 'RRA:AVERAGE:0.5:1:600', 'RRA:AVERAGE:0.5:6:700',
                    'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                    'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
@@ -438,7 +438,7 @@ for disk in get_disks():
                           'GPRINT:b:AVERAGE:Average\:%8.2lf %s', 'GPRINT:b:MAX:Maximum\:%8.2lf %s\\n')
     else:
         rrdtool.create(rrdpath + '/disk-io-'+disk+'.rrd', '--step', '300',
-                       'DS:io_reads:COUNTER:600:0:U', 'DS:io_writes:COUNTER:600:0:U',
+                       'DS:io_reads:COUNTER:600:0:100000', 'DS:io_writes:COUNTER:600:0:100000',
                        'RRA:AVERAGE:0.5:1:500', 'RRA:AVERAGE:0.5:1:600', 'RRA:AVERAGE:0.5:6:700',
                        'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                        'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
@@ -469,7 +469,7 @@ for disk in get_disks():
                           'GPRINT:cdefb:AVERAGE:Average\:%8.2lf %s', 'GPRINT:cdefb:MAX:Maximum\:%8.2lf %s\\n')
     else:
         rrdtool.create(rrdpath + '/disk-io-sectors-'+disk+'.rrd', '--step', '300',
-                       'DS:sectors_reads:COUNTER:600:0:U', 'DS:sectors_writes:COUNTER:600:0:U',
+                       'DS:sectors_reads:COUNTER:600:0:2000000', 'DS:sectors_writes:COUNTER:600:0:2000000',
                        'RRA:AVERAGE:0.5:1:500', 'RRA:AVERAGE:0.5:1:600', 'RRA:AVERAGE:0.5:6:700',
                        'RRA:AVERAGE:0.5:24:775', 'RRA:AVERAGE:0.5:288:797', 'RRA:MAX:0.5:1:500',
                        'RRA:MAX:0.5:1:600', 'RRA:MAX:0.5:6:700', 'RRA:MAX:0.5:24:775', 'RRA:MAX:0.5:288:797')
