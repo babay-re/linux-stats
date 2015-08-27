@@ -9,9 +9,9 @@ import rrdtool
 import sqlite3
 
 '''Path to rrd files.'''
-rrdpath = "/var/www/stats/rrd"
+rrdpath = "/var/www/web/stats/rrd"
 '''Path to store images.'''
-rrdgraphs = "/var/www/smart58/img"
+rrdgraphs = "/var/www/web/stats/img"
 '''Path to store sqlite db file. If you have high io load it will be beter to store file in tmpfs.'''
 dbpath = "/dev/shm"
 
